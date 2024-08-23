@@ -8,8 +8,8 @@ go的国际化还挺麻烦的，一些框架本身就不提供的国际化，为
 
 功能函数
 
-- Tran() 翻译函数
-- TranWithTemplate() 翻译函数，支持模板格式翻译
+- Tran(ctx context.Context, msgId string) 翻译函数
+- TranWithTemplate(ctx context.Context, msgId string, template map[string]any) 翻译函数，支持模板变量替换
 
 使用步骤
 
