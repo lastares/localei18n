@@ -91,11 +91,10 @@ i18n:       i18n,
 ```
 
 4. 调用翻译函数,具体根据实际业务逻辑进行处理
-
 ```go
 func (u *UserService) Store(ctx context.Context, media *model.user) (*service.User, error) {
 // 其他逻辑，伪代码
-// 翻译
+// 翻译 
 msg := u.i18n.Tran(ctx, "user not found")
 // 带变量模板的翻译
 msg = u.i18n.TranWithTemplate(ctx, "user not found", map[string]any{"name": "ares"})
