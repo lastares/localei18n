@@ -1,0 +1,6 @@
+{
+  "app.version": "version",
+  "hello": "hello {{.name}}"
+}
+
+
