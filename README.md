@@ -105,7 +105,7 @@ func NewUserService(i18n *localei18n.LocaleI18N) *UserService {
 }
 ```
 
-4. 调用翻译函数,具体根据实际业务逻辑进行处理
+5. 调用翻译函数,具体根据实际业务逻辑进行处理
 ```go
 func (u *UserService) Store(ctx context.Context, media *model.user) (*service.User, error) {
    // 其他逻辑，伪代码
