@@ -6,12 +6,27 @@ go的国际化还挺麻烦的，一些框架本身就不提供的国际化，为
 
 目前配置文件格式支持`json`和`toml`
 
-功能函数
+**功能函数**
 
 - Tran(ctx context.Context, msgId string) 翻译函数
 - TranWithTemplate(ctx context.Context, msgId string, template map[string]any) 翻译函数，支持模板变量替换
 
-使用步骤
+**对外暴漏的一些结构体和常量**
+<pre>
+// 常量定义区域，用于指定配置文件的类型
+const (
+	// Json 代表JSON格式的配置文件
+	Json = "json"
+	// Toml 代表TOML格式的配置文件
+	Toml = "toml"
+)
+
+// LocaleKey 是一个结构体，用于标识上下文中存储的语言标签键。
+type LocaleKey struct{}
+
+</pre>
+
+**使用步骤**
 
 1. 安装依赖
 
