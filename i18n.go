@@ -8,9 +8,21 @@ import (
 	"log"
 	"path/filepath"
 
+	"github.com/BurntSushi/toml"
 	"github.com/nicksnyder/go-i18n/v2/i18n"
 	"golang.org/x/text/language"
 )
+
+// 常量定义区域，用于指定配置文件的类型
+const (
+	// Json 代表JSON格式的配置文件
+	Json = "json"
+	// Toml 代表TOML格式的配置文件
+	Toml = "toml"
+)
+
+// LocaleKey 是一个结构体，用于标识上下文中存储的语言标签键。
+type LocaleKey struct{}
 
 // LocaleI18N 结构体用于存储国际化相关的数据。
 type LocaleI18N struct {
@@ -20,10 +32,14 @@ type LocaleI18N struct {
 
 // NewLocaleI18N 创建一个新的 LocaleI18N 实例。
 // 参数 translateDir 指定了存放翻译文件的目录路径。
-func NewLocaleI18N(translateDir string) *LocaleI18N {
+func NewLocaleI18N(translateDir string, configType ...string) *LocaleI18N {
 	// 创建一个新的 Bundle，指定默认语言为中文
 	bd := i18n.NewBundle(language.Chinese)
-	// 注册 JSON 解析函数
+	localeI18N := &LocaleI18N{
+		bd: bd,
+	}
+	localeI18N.registerUnmarshalFunc(configType...)
+	// 注册配置文件解析函数
 	bd.RegisterUnmarshalFunc("json", json.Unmarshal)
 	// 获取翻译文件列表
 	translateFiles, err := GetDirFileList(translateDir)
@@ -47,20 +63,25 @@ func NewLocaleI18N(translateDir string) *LocaleI18N {
 	}
 }
 
+func (r *LocaleI18N) registerUnmarshalFunc(configTypes ...string) {
+	if len(configTypes) == 0 {
+		r.bd.RegisterUnmarshalFunc(Json, json.Unmarshal)
+	} else {
+		r.bd.RegisterUnmarshalFunc(Toml, toml.Unmarshal)
+	}
+}
+
 // newLocalizer 根据上下文中的 LocaleKey 值创建一个新的 Localizer。
 // 如果上下文中不存在 LocaleKey 或者其值不是有效的语言标签，则使用默认语言。
 func (r *LocaleI18N) newLocalizer(ctx context.Context) {
 	value := ctx.Value(LocaleKey{}) // 从上下文中获取 LocaleKey 的值
 	if value != nil {
-		locale, ok := value.(language.Tag)    // 尝试将值转换为 language.Tag 类型
-		if ok && locale != language.Chinese { // 如果转换成功且语言标签不是中文
+		locale, ok := value.(language.Tag) // 尝试将值转换为 language.Tag 类型
+		if ok {
 			r.i18n = i18n.NewLocalizer(r.bd, locale.String()) // 创建一个新的 Localizer 实例
 		}
 	}
 }
-
-// LocaleKey 是一个结构体，用于标识上下文中存储的语言标签键。
-type LocaleKey struct{}
 
 // Tran 提供了一个简单的方法来翻译消息 ID。
 // 如果需要，它会根据上下文中的语言标签选择合适的翻译。
