@@ -14,13 +14,56 @@ func init() {
 	localeI18n = NewLocaleI18N("/Users/ares/GolandProjects/localei18n/resources/lang")
 }
 
-//func TestNewLocaleI18N(t *testing.T) {
-//	NewLocaleI18N("/Users/ares/GolandProjects/localei18n/resources/lang")
-//}
-
 func TestTran(t *testing.T) {
 	TestTranByZh(t)
 	TestTranByEn(t)
+}
+
+func TestTranslate(t *testing.T) {
+	cases := []struct {
+		locale   language.Tag
+		msgId    string
+		template map[string]any
+		want     string
+	}{
+		{
+			locale: language.Chinese,
+			msgId:  "app.version",
+			want:   "版本",
+		},
+		{
+			locale: language.English,
+			msgId:  "app.version",
+			want:   "version",
+		},
+		{
+			locale: language.Chinese,
+			msgId:  "hello",
+			template: map[string]any{
+				"name": "阿瑞斯",
+			},
+			want: "你好 阿瑞斯",
+		},
+		{
+			locale: language.English,
+			msgId:  "hello",
+			template: map[string]any{
+				"name": "ares",
+			},
+			want: "hello ares",
+		},
+	}
+	t.Run("Translate", func(t *testing.T) {
+		for i, item := range cases {
+			got := localeI18n.Translate(&item.locale, item.msgId)
+			if len(item.template) > 0 {
+				got = localeI18n.TranslateWithTemplate(&item.locale, item.msgId, item.template)
+			}
+			if !assert.Equal(t, item.want, got) {
+				t.Errorf("Tran() case %d failed", i)
+			}
+		}
+	})
 }
 
 func TestTranByZh(t *testing.T) {

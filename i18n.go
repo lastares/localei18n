@@ -8,7 +8,6 @@ import (
 	"log"
 	"path/filepath"
 
-	"github.com/BurntSushi/toml"
 	"github.com/nicksnyder/go-i18n/v2/i18n"
 	"golang.org/x/text/language"
 )
@@ -32,15 +31,14 @@ type LocaleI18N struct {
 
 // NewLocaleI18N 创建一个新的 LocaleI18N 实例。
 // 参数 translateDir 指定了存放翻译文件的目录路径。
-func NewLocaleI18N(translateDir string, configType ...string) *LocaleI18N {
+func NewLocaleI18N(translateDir string) *LocaleI18N {
 	// 创建一个新的 Bundle，指定默认语言为中文
 	bd := i18n.NewBundle(language.Chinese)
 	localeI18N := &LocaleI18N{
 		bd: bd,
 	}
-	localeI18N.registerUnmarshalFunc(configType...)
 	// 注册配置文件解析函数
-	bd.RegisterUnmarshalFunc("json", json.Unmarshal)
+	localeI18N.bd.RegisterUnmarshalFunc(Json, json.Unmarshal)
 	// 获取翻译文件列表
 	translateFiles, err := GetDirFileList(translateDir)
 	if err != nil {
@@ -57,30 +55,27 @@ func NewLocaleI18N(translateDir string, configType ...string) *LocaleI18N {
 	}
 
 	// 返回新的 LocaleI18N 实例
-	return &LocaleI18N{
-		bd:   bd,
-		i18n: i18n.NewLocalizer(bd), // 创建 Localizer 实例
-	}
+	localeI18N.i18n = i18n.NewLocalizer(bd)
+	return localeI18N
 }
 
-func (r *LocaleI18N) registerUnmarshalFunc(configTypes ...string) {
-	if len(configTypes) == 0 {
-		r.bd.RegisterUnmarshalFunc(Json, json.Unmarshal)
-	} else {
-		r.bd.RegisterUnmarshalFunc(Toml, toml.Unmarshal)
-	}
+func (r *LocaleI18N) registerUnmarshalFunc() {
+	r.bd.RegisterUnmarshalFunc(Json, json.Unmarshal)
 }
 
-// newLocalizer 根据上下文中的 LocaleKey 值创建一个新的 Localizer。
-// 如果上下文中不存在 LocaleKey 或者其值不是有效的语言标签，则使用默认语言。
-func (r *LocaleI18N) newLocalizer(ctx context.Context) {
-	value := ctx.Value(LocaleKey{}) // 从上下文中获取 LocaleKey 的值
-	if value != nil {
-		locale, ok := value.(language.Tag) // 尝试将值转换为 language.Tag 类型
-		if ok {
-			r.i18n = i18n.NewLocalizer(r.bd, locale.String()) // 创建一个新的 Localizer 实例
-		}
-	}
+type Localizer struct {
+	Locale language.Tag
+}
+
+// switchLocalizer 方法用于切换语言环境
+// 此方法在需要为 LocaleI18N 实例更改语言环境时调用
+// 参数:
+//   - locale: 一个指向 language.Tag 类型的指针，表示新的语言环境
+//
+// 通过这个方法，我们可以根据不同的语言环境需求动态地更改 LocaleI18N 实例的 Localizer
+func (r *LocaleI18N) switchLocalizer(locale *language.Tag) {
+	// 使用新的语言环境创建一个新的 Localizer 实例
+	r.i18n = i18n.NewLocalizer(r.bd, locale.String())
 }
 
 // Tran 提供了一个简单的方法来翻译消息 ID。
@@ -91,7 +86,7 @@ func (r *LocaleI18N) newLocalizer(ctx context.Context) {
 // 返回:
 // - 翻译后的字符串。
 func (r *LocaleI18N) Tran(ctx context.Context, msgId string) string {
-	return r.translate(ctx, msgId, nil)
+	return r.translate(ctx, msgId, nil, nil)
 }
 
 // TranWithTemplate 提供了一个方法来翻译带有模板的消息 ID。
@@ -103,7 +98,32 @@ func (r *LocaleI18N) Tran(ctx context.Context, msgId string) string {
 // 返回:
 // - 翻译后的字符串。
 func (r *LocaleI18N) TranWithTemplate(ctx context.Context, msgId string, template map[string]any) string {
-	return r.translate(ctx, msgId, template)
+	return r.translate(ctx, msgId, template, nil)
+}
+
+// Translate 方法用于将给定的消息 ID 翻译成指定语言的文本。
+// 它接收一个语言标签和一个消息 ID，然后返回翻译后的文本。
+// 参数:
+//   - locale: 指定翻译所使用的语言标签。这个标签遵循 BCP 47 的语言标签格式，例如 "en-US" 表示美国英语。
+//   - msgId: 需要翻译的消息的唯一标识符。消息 ID 通常是在翻译资源包中定义的消息模板的名称。
+//
+// 返回值:
+//   - string: 翻译后的文本字符串。如果无法找到对应的消息 ID 或者翻译资源，将返回空字符串。
+func (r *LocaleI18N) Translate(locale *language.Tag, msgId string) string {
+	return r.translate(nil, msgId, nil, locale)
+}
+
+// TranslateWithTemplate 根据指定的语言标签和模板数据，翻译消息。
+// 此方法用于需要模板渲染的翻译场景，允许传入自定义的语言环境和模板数据。
+// 参数:
+//   - locale  - 指定的语言标签，用于确定翻译的目标语言。
+//   - msgId   - 要翻译的消息的唯一标识符，用于定位具体翻译内容。
+//   - template- 模板数据，用于在翻译过程中动态替换变量。
+//
+// 返回值:
+//   - 翻译并应用模板后的字符串。如果翻译失败或模板数据不匹配，可能返回原始消息ID或错误信息。
+func (r *LocaleI18N) TranslateWithTemplate(locale *language.Tag, msgId string, template map[string]any) string {
+	return r.translate(nil, msgId, template, locale)
 }
 
 // translate 翻译指定的消息。
@@ -114,9 +134,20 @@ func (r *LocaleI18N) TranWithTemplate(ctx context.Context, msgId string, templat
 //
 // 返回值:
 // string: 翻译后的消息字符串。如果发生错误，则返回空字符串。
-func (r *LocaleI18N) translate(ctx context.Context, msgId string, template map[string]any) string {
-	// 初始化本地化器，确保 localize 方法可以正常调用。
-	r.newLocalizer(ctx)
+func (r *LocaleI18N) translate(ctx context.Context, msgId string, template map[string]any, locale *language.Tag) string {
+	if ctx != nil {
+		// 初始化本地化器，确保 localize 方法可以正常调用。
+		value := ctx.Value(LocaleKey{}) // 从上下文中获取 LocaleKey 的值
+		if value != nil {
+			newLocale, ok := value.(language.Tag)
+			if ok {
+				r.switchLocalizer(&newLocale)
+			}
+		}
+	}
+	if locale != nil {
+		r.switchLocalizer(locale)
+	}
 	// 使用 i18n 包的 Localize 方法进行消息翻译。
 	// MessageID 和 TemplateData 用于指定要翻译的消息和模板数据。
 	msg, err := r.i18n.Localize(&i18n.LocalizeConfig{
